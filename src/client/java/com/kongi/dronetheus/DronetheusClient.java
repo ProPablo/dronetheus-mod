@@ -9,6 +9,7 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.PlayerInput;
 import org.lwjgl.glfw.GLFW;
 
 import io.undertow.Undertow;
@@ -40,6 +41,10 @@ public class DronetheusClient implements ClientModInitializer {
     public static ImageWriter ImageWriter;
 
 
+    private static KeyBinding walkKeybind;
+    public static boolean WalkForward = false;
+
+
     @Override
     public void onInitializeClient() {
         LOGGER.info("Starting Screen Stream Mod");
@@ -55,6 +60,13 @@ public class DronetheusClient implements ClientModInitializer {
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F8,
                 "category.screenstream.general"
+        ));
+
+        walkKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.dronetheus.walk",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_F9,
+                "category.dronetheus.general"
         ));
 
         // Start web server
@@ -75,6 +87,8 @@ public class DronetheusClient implements ClientModInitializer {
                 }
             }
         });
+
+
     }
 
     private void startServer() {
@@ -138,6 +152,11 @@ public class DronetheusClient implements ClientModInitializer {
                 exchange.getResponseSender().send(status);
             };
 
+            HttpHandler walkHandler = exchange -> {
+
+//                exchange.getResponseSender().send();
+            };
+
             PathHandler pathHandler = new PathHandler()
                     .addExactPath("/", indexHandler)
                     .addExactPath("/stream", streamHandler)
@@ -156,20 +175,6 @@ public class DronetheusClient implements ClientModInitializer {
         }
     }
 
-    //	def calculate_fps():
-//    global last_time, frame_count, fps
-//
-//    frame_count += 1
-//    current_time = time.time()
-//    elapsed = current_time - last_time
-//
-//    if elapsed > 1.0:  # Update FPS every second
-//        fps = frame_count / elapsed
-//        print(f"Current FPS: {fps:.2f}")
-//        frame_count = 0
-//        last_time = current_time
-//
-//    return fps
     static long lastTime = System.currentTimeMillis();
     static int fpsCount = 0;
 
