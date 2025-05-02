@@ -12,10 +12,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -38,65 +43,80 @@ public class WorldRendererMixin {
 
             try {
                 // Get client instance via MinecraftClient.getInstance()
-                // This is a bit of a hack but works in a mixin context
                 net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
                 Framebuffer framebuffer = client.getFramebuffer();
 
                 // Use ScreenshotRecorder to take a screenshot of the current frame
                 NativeImage screenshot = ScreenshotRecorder.takeScreenshot(framebuffer);
 
-                // Get pixel array from NativeImage
-                // TODO: optimize to do all this in 1 function
-                int[] pixels = screenshot.copyPixelsArgb();
-
-                int width = screenshot.getWidth();
-                int height = screenshot.getHeight();
-
-                byte[] jpegBytes = convertToJpeg(pixels, width, height);
-                //This might be inefficient since it might be doing a bunch of copies of the byte array
-                DronetheusClient.addFrameToQueue(jpegBytes);
+                // Convert to JPEG and add to queue in one step
+                convertToJpegAndQueue(screenshot);
 
                 // We don't need this anymore since we've copied the data
                 screenshot.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                DronetheusClient.LOGGER.error("Error capturing frame", e);
             }
         }
+    }
+
+    // Reuse these objects across frames to avoid GC pressure
+    @Unique
+    private static BufferedImage reusableImage = null;
+    @Unique
+    private static ByteArrayOutputStream reusableBaos = new ByteArrayOutputStream(65536); // Pre-allocate 64KB
+    @Unique
+    private static final JPEGImageWriteParam jpegParams = setupJpegParams();
+
+    @Unique
+    private static JPEGImageWriteParam setupJpegParams() {
+        JPEGImageWriteParam params = new JPEGImageWriteParam(null);
+        params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        // Adjust quality/speed tradeoff (0.5f is a good balance, lower = faster)
+        params.setCompressionQuality(0.5f);
+        // Use fastest DCT method
+        params.setOptimizeHuffmanTables(false);
+        return params;
     }
 
     @Unique
-    private byte[] convertToJpeg(int[] pixels, int width, int height) throws IOException {
+    private void convertToJpegAndQueue(NativeImage screenshot) throws IOException {
+        int width = screenshot.getWidth();
+        int height = screenshot.getHeight();
 
-        // Create a BufferedImage with TYPE_INT_ARGB
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        // Convert ARGB pixels to RGB (remove alpha)
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int argb = pixels[y * width + x];
-                // Extract RGB components and ignore alpha
-                int rgb = argb & 0x00FFFFFF;
-                image.setRGB(x, y, rgb);
-            }
+        // Initialize or reuse the BufferedImage
+        if (reusableImage == null || reusableImage.getWidth() != width || reusableImage.getHeight() != height) {
+            reusableImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         }
 
-        // Set the pixels to the BufferedImage
-//        image.setRGB(0, 0, width, height, pixels, 0, width);
+        // Get direct access to the raster data for faster pixel setting
+        WritableRaster raster = reusableImage.getRaster();
+        DataBufferInt dataBuffer = (DataBufferInt) raster.getDataBuffer();
+        int[] imageData = dataBuffer.getData();
 
-        // Create a ByteArrayOutputStream to hold the JPEG data
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Get pixel array from NativeImage - using the copyPixelsARGB method directly
+        int[] pixels = screenshot.copyPixelsArgb();
 
+        // Bulk operation to copy and convert ARGB to RGB - much faster than nested loops
+        for (int i = 0; i < pixels.length; i++) {
+            // Extract RGB components (ignore alpha)
+            imageData[i] = pixels[i] & 0x00FFFFFF;
+        }
+
+        // Reset the ByteArrayOutputStream for reuse
+        reusableBaos.reset();
+
+        // Get a JPEGImageWriter directly instead of using ImageIO.write
         ImageWriter writer = DronetheusClient.ImageWriter;
 
-        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(reusableBaos)) {
             writer.setOutput(ios);
-            writer.write(image);
+            // Use the optimized JPEG params
+            writer.write(null, new IIOImage(reusableImage, null, null), jpegParams);
         }
 
-//        // Write the image as JPEG to the output stream
-//        ImageIO.write(image, "jpg", baos);
-        // Convert the output stream to a byte array
-
-        return baos.toByteArray();
+        // Add to queue directly from the ByteArrayOutputStream to avoid copy
+        DronetheusClient.addFrameToQueue(reusableBaos.toByteArray());
     }
+
 }
