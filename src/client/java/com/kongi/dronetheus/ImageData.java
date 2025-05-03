@@ -15,6 +15,8 @@ import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+// This isnt a record because all records do is make it faster to extend these methods that I dont need
+//https://www.baeldung.com/java-record-keyword
 public class ImageData {
     public int width;
     public int height;
@@ -25,8 +27,6 @@ public class ImageData {
         height = screenshot.getHeight();
         pixels = screenshot.copyPixelsArgb();
     }
-
-
 
     // Reuse these objects across frames to avoid GC pressure
     @Unique

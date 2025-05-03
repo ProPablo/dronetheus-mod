@@ -16,6 +16,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
+			"com.kongi.dronetheus.DronetheusCommon",
 			"com.kongi.dronetheus.Dronetheus"
 		],
 		"client": [

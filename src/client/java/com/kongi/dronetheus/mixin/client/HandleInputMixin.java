@@ -1,7 +1,9 @@
 package com.kongi.dronetheus.mixin.client;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -16,10 +18,13 @@ public class HandleInputMixin
 {
     @Shadow @Final public GameOptions options;
 
+    @Shadow @Nullable public ClientPlayerEntity player;
+
     @Inject(at = @At("HEAD"), method = "tick")
     private void tick(CallbackInfo info)
     {
         options.forwardKey.setPressed(true);
+//        player.getPos();
     }
 
 //    @Inject(at = @At("HEAD"), method = "handleInputEvents")

@@ -5,11 +5,17 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketSender;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
 import io.undertow.Undertow;
@@ -27,6 +33,10 @@ import org.slf4j.LoggerFactory;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
 
+import static com.kongi.dronetheus.Dronetheus.MOD_ID;
+import com.kongi.dronetheus.FireTruckPositionS2CPayload;
+
+
 public class DronetheusClient implements ClientModInitializer {
     private static final String BOUNDARY = "frame";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
@@ -36,8 +46,7 @@ public class DronetheusClient implements ClientModInitializer {
     private static final int PORT = 8080;
     private static KeyBinding toggleKeybind;
 
-    public static final String MOD_ID = "dronetheus";
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID + "client");
     public static ImageWriter ImageWriter;
 
 
@@ -72,6 +81,20 @@ public class DronetheusClient implements ClientModInitializer {
         // Start web server
         startServer();
 
+        // Register client-side packet receiver for position updates
+        ClientPlayNetworking.registerGlobalReceiver(FireTruckPositionS2CPayload.ID, (payload, context) -> {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.player != null) {
+                Vec3d position = payload.fireTruckLoc();
+                client.player.sendMessage(
+                    Text.literal("Received position update: " + 
+                        String.format("%.2f, %.2f, %.2f", position.x, position.y, position.z))
+                        .formatted(Formatting.GREEN),
+                    false
+                );
+            }
+        });
+
         // Set up screen capture on client tick
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // Check for keybinding press
@@ -86,6 +109,10 @@ public class DronetheusClient implements ClientModInitializer {
                     );
                 }
             }
+            // This works
+//            if (client.player != null) {
+//                LOGGER.info("Gaming: {}", client.player.getPos());
+//            }
         });
 
 
@@ -171,6 +198,7 @@ public class DronetheusClient implements ClientModInitializer {
             System.out.println("Screen stream server started on port " + PORT);
 
         } catch (Exception e) {
+            LOGGER.info("I AM THE SECOND PLAYER");
             e.printStackTrace();
         }
     }

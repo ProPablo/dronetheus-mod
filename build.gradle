@@ -1,7 +1,6 @@
 plugins {
 	id 'fabric-loom' version '1.10-SNAPSHOT'
 	id 'maven-publish'
-	id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 version = project.mod_version
@@ -50,17 +49,27 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Undertow for web server
-	shadow(implementation ('io.undertow:undertow-core:2.2.17.Final'))
-	// include 'io.undertow:undertow-core:2.2.17.Final'
+	// Undertow and XNIO dependencies
+	modImplementation 'io.undertow:undertow-core:2.2.17.Final'
+	include 'io.undertow:undertow-core:2.2.17.Final'
 
-	shadow(implementation ('org.jboss.xnio:xnio-nio:3.8.7.Final'))
-	// include 'org.jboss.xnio:xnio-nio:3.8.7.Final'
+	modImplementation 'org.jboss.xnio:xnio-api:3.8.7.Final'
+	include 'org.jboss.xnio:xnio-api:3.8.7.Final'
 
-	shadow(implementation ('org.jboss.threads:jboss-threads:3.4.2.Final'))
-	// include 'org.jboss.threads:jboss-threads:3.4.2.Final'
+	modImplementation 'org.jboss.xnio:xnio-nio:3.8.7.Final'
+	include 'org.jboss.xnio:xnio-nio:3.8.7.Final'
 
-	
+	modImplementation 'org.jboss.threads:jboss-threads:3.4.2.Final'
+	include 'org.jboss.threads:jboss-threads:3.4.2.Final'
+
+	modImplementation 'org.jboss.logging:jboss-logging:3.4.3.Final'
+	include 'org.jboss.logging:jboss-logging:3.4.3.Final'
+
+
+	// Add WildFly (this is for undertow: XNIO001001: No XNIO provider found)
+	modImplementation 'org.wildfly.common:wildfly-common:1.5.4.Final'
+	include 'org.wildfly.common:wildfly-common:1.5.4.Final'
+
 }
 
 processResources {
@@ -93,11 +102,6 @@ jar {
 	}
 }
 
-shadowJar {
-	configurations = [project.configurations.shadow]
-	relocate "org.jboss.xnio", "com.kongi.dronetheus.shadow.org.jboss.xnio"
-	relocate "org.jboss.threads", "com.kongi.dronetheus.shadow.org.jboss.threads"
-}
 
 // configure the maven publication
 publishing {

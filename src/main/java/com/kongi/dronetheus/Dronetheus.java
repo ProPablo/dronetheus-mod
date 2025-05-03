@@ -1,9 +1,10 @@
 package com.kongi.dronetheus;
 
 import net.fabricmc.api.ModInitializer;
-
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -20,10 +21,12 @@ public class Dronetheus implements ModInitializer {
 	public static final Logger LOGGER = LoggerFactory.getLogger("player_position_mod");
 
 	// Define a unique identifier for our packet
-	public static final Identifier POSITION_PACKET_ID = Identifier.of("mymod", "position_packet");
+	public static final Identifier POSITION_PACKET_ID = Identifier.of(MOD_ID, "position_packet");
 
 	// Store connected players on the server side
 	private static final List<UUID> connectedPlayers = new ArrayList<>();
+	private static int tickCounter = 0;
+	private static final int TICK_INTERVAL = 3; // Send position every 3 ticks
 
 	@Override
 	public void onInitialize() {
@@ -70,6 +73,36 @@ public class Dronetheus implements ModInitializer {
 			ServerPlayerEntity player = handler.getPlayer();
 			LOGGER.info("Player left: " + player.getName().getString());
 			connectedPlayers.remove(player.getUuid());
+		});
+
+		// Register server tick event
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			tickCounter++;
+			if (tickCounter >= TICK_INTERVAL) {
+				tickCounter = 0;
+				
+				// Only proceed if we have exactly 2 players
+				if (connectedPlayers.size() == 2) {
+					ServerPlayerEntity firstPlayer = null;
+					ServerPlayerEntity secondPlayer = null;
+					
+					// Find both players
+					for (ServerPlayerEntity player : PlayerLookup.all(server)) {
+						if (player.getUuid().equals(connectedPlayers.get(0))) {
+							firstPlayer = player;
+						} else if (player.getUuid().equals(connectedPlayers.get(1))) {
+							secondPlayer = player;
+						}
+					}
+					
+					// Send second player's position to first player
+					if (firstPlayer != null && secondPlayer != null) {
+						var payload = new FireTruckPositionS2CPayload(secondPlayer.getPos());
+						ServerPlayNetworking.send(firstPlayer, payload);
+						LOGGER.info("Sent position of {} to {}", secondPlayer.getName().getString(), firstPlayer.getName().getString());
+					}
+				}
+			}
 		});
 	}
 }
