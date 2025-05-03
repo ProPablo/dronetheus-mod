@@ -30,7 +30,7 @@ import javax.imageio.ImageWriter;
 public class DronetheusClient implements ClientModInitializer {
     private static final String BOUNDARY = "frame";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
-    private static final BlockingQueue<byte[]> FRAME_QUEUE = new LinkedBlockingQueue<>(5);
+    private static final BlockingQueue<ImageData> FRAME_QUEUE = new LinkedBlockingQueue<>(5);
     private static Undertow server;
     public static boolean isCapturing = false;
     private static final int PORT = 8080;
@@ -196,10 +196,10 @@ public class DronetheusClient implements ClientModInitializer {
             while (!exchange.isComplete()) {
                 try {
                     //Gives back null if timed out
-                    byte[] frameData = FRAME_QUEUE.poll(1, TimeUnit.SECONDS);
-                    if (frameData != null) {
+                    ImageData imageData = FRAME_QUEUE.poll(1, TimeUnit.SECONDS);
+                    if (imageData != null) {
                         CountFPS();
-
+                        byte[] frameData = imageData.convertToJpeg();
                         output.write(("--" + BOUNDARY + "\r\n").getBytes());
                         output.write("Content-Type: image/jpeg\r\n".getBytes());
                         output.write(("Content-Length: " + frameData.length + "\r\n\r\n").getBytes());
@@ -234,7 +234,7 @@ public class DronetheusClient implements ClientModInitializer {
     /**
      * Method called by the mixin to add a frame to the queue
      */
-    public static void addFrameToQueue(byte[] imageData) {
+    public static void addFrameToQueue(ImageData imageData) {
         if (isCapturing) {
             // If queue is full, remove oldest frame
             if (FRAME_QUEUE.remainingCapacity() == 0) {
@@ -246,5 +246,4 @@ public class DronetheusClient implements ClientModInitializer {
             }
         }
     }
-
 }
