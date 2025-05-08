@@ -39,27 +39,67 @@
             </div>
             <div class="flex flex-row justify-evenly gap-4">
                 <button @click="changeState(StateType.PRE_BURN)" type="button"
-                    class="btn bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 p-2 w-full">
+                    class="btn bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 p-2 w-full font-bold">
                     Pre-burn
                 </button>
                 <button @click="changeState(StateType.DURING_BURN)" type="button"
-                    class="btn bg-green-400 hover:bg-green-300 active:bg-green-500 p-2 w-full">
+                    class="btn bg-green-400 hover:bg-green-300 active:bg-green-500 p-2 w-full font-bold">
                     During burn
                 </button>
                 <button @click="changeState(StateType.POST_BURN)" type="button"
-                    class="btn bg-red-400 hover:bg-red-300 active:bg-red-500 p-2 w-full">
+                    class="btn bg-red-400 hover:bg-red-300 active:bg-red-500 p-2 w-full font-bold">
                     Post-burn
                 </button>
                 <button @click="changeState(StateType.LAND)" type="button"
-                    class="btn bg-pink-400 hover:bg-pink-300 active:bg-pink-500 p-2 w-full">
+                    class="btn bg-pink-400 hover:bg-pink-300 active:bg-pink-500 p-2 w-full font-bold">
                     Land
+                </button>
+            </div>
+        </div>
+
+        <!-- WASD Controls -->
+        <div class="mt-4 p-4 bg-gray-100 rounded-lg">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-lg font-bold">Movement Controls</h2>
+                <div class="text-sm" :class="{ 'text-red-500': !wasdEnabled, 'text-green-500': wasdEnabled }">
+                    <b>WASD Controls:</b> {{ wasdEnabled ? 'Enabled' : 'Disabled' }}
+                    <br>
+                    <span class="text-xs">Press F9 to toggle</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 max-w-[150px] mx-auto">
+                <div></div>
+                <button @mousedown="updateKeyState('w', true)" @mouseup="updateKeyState('w', false)" @mouseleave="updateKeyState('w', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
+                    :disabled="!wasdEnabled"
+                    :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
+                    W
+                </button>
+                <div></div>
+                <button @mousedown="updateKeyState('a', true)" @mouseup="updateKeyState('a', false)" @mouseleave="updateKeyState('a', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
+                    :disabled="!wasdEnabled"
+                    :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
+                    A
+                </button>
+                <button @mousedown="updateKeyState('s', true)" @mouseup="updateKeyState('s', false)" @mouseleave="updateKeyState('s', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
+                    :disabled="!wasdEnabled"
+                    :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
+                    S
+                </button>
+                <button @mousedown="updateKeyState('d', true)" @mouseup="updateKeyState('d', false)" @mouseleave="updateKeyState('d', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
+                    :disabled="!wasdEnabled"
+                    :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
+                    D
                 </button>
             </div>
         </div>
     </div>
 
     <script lang="ts">
-        const { createApp, ref, computed, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
         // Define the State enum
         const StateType = {
@@ -77,11 +117,69 @@
                 const streamStatus = ref("Connecting...");
                 const streamUrl = ref("/stream");
                 const streamImage = ref(null);
+                const wasdEnabled = ref(false);
+
+                // Track key states
+                const keyStates = ref({
+                    w: false,
+                    a: false,
+                    s: false,
+                    d: false
+                });
+
+                // Set up interval to send key states
+                let keyStateInterval;
+                onMounted(() => {
+                    // Initial stream connection
+                    streamUrl.value = `/stream?t=${Date.now()}`;
+                    
+                    // Set up interval to send key states every 200ms
+                    keyStateInterval = setInterval(() => {
+                        if (wasdEnabled.value) {
+                            sendKeyStates();
+                        }
+                    }, 200);
+
+                    // Set up interval to check WASD status
+                    setInterval(checkWASDStatus, 1000);
+                });
+
+                // Clean up interval when component is unmounted
+                onUnmounted(() => {
+                    if (keyStateInterval) {
+                        clearInterval(keyStateInterval);
+                    }
+                });
+
+                function checkWASDStatus() {
+                    fetch('/api/status')
+                        .then(response => response.json())
+                        .then(data => {
+                            wasdEnabled.value = data.wasdEnabled;
+                        })
+                        .catch(error => console.error('Error checking WASD status:', error));
+                }
 
                 function changeState(newState) {
                     if (Object.values(StateType).includes(newState)) {
                         state.value = newState;
                     }
+                }
+
+                function updateKeyState(key, pressed) {
+                    if (wasdEnabled.value) {
+                        keyStates.value[key] = pressed;
+                    }
+                }
+
+                function sendKeyStates() {
+                    fetch('/api/controls', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(keyStates.value)
+                    }).catch(error => console.error('Error sending key states:', error));
                 }
 
                 function onStreamError(e) {
@@ -91,7 +189,6 @@
                     setTimeout(() => {
                         streamUrl.value = `/stream?t=${Date.now()}`;
                     }, 5000);
-
                 }
 
                 function onStreamLoad() {
@@ -122,23 +219,20 @@
                     console.log("Alarm raised!");
                 }
 
-                onMounted(() => {
-                    // Initial stream connection
-                    streamUrl.value = `/stream?t=${Date.now()}`;
-                });
-
                 return {
                     state,
-                    StateType, // Expose the enum to the template
+                    StateType,
                     isConnected,
                     streamStatus,
                     streamUrl,
                     streamImage,
+                    wasdEnabled,
                     changeState,
                     getColor,
                     raiseAlarm,
                     onStreamError,
-                    onStreamLoad
+                    onStreamLoad,
+                    updateKeyState
                 };
             },
         }).mount("#app");

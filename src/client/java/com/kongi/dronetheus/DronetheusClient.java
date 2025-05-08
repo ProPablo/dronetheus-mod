@@ -45,6 +45,13 @@ public class DronetheusClient implements ClientModInitializer {
     private static KeyBinding walkKeybind;
     public static boolean WalkForward = false;
 
+    // WASD control variables
+    public static boolean isMovingForward = false;
+    public static boolean isMovingBackward = false;
+    public static boolean isMovingLeft = false;
+    public static boolean isMovingRight = false;
+    public static boolean isWASDEnabled = false;  // New toggle state
+
     @Override
     public void onInitializeClient() {
         LOGGER.info("Starting Screen Stream Mod");
@@ -52,10 +59,10 @@ public class DronetheusClient implements ClientModInitializer {
 
         // Register keybinding to toggle streaming
         toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.screenstream.toggle",
+                "key.dronetheus.toggle",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_F8,
-                "category.screenstream.general"
+                "category.dronetheus.general"
         ));
 
         walkKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -96,10 +103,18 @@ public class DronetheusClient implements ClientModInitializer {
                     );
                 }
             }
-            // This works
-//            if (client.player != null) {
-//                LOGGER.info("Gaming: {}", client.player.getPos());
-//            }
+
+            // Check for WASD control toggle
+            while (walkKeybind.wasPressed()) {
+                isWASDEnabled = !isWASDEnabled;
+                if (client.player != null) {
+                    client.player.sendMessage(
+                            Text.literal("WASD controls " + (isWASDEnabled ? "enabled" : "disabled"))
+                                    .formatted(isWASDEnabled ? Formatting.GREEN : Formatting.RED),
+                            false
+                    );
+                }
+            }
         });
 
 
@@ -146,19 +161,47 @@ public class DronetheusClient implements ClientModInitializer {
             HttpHandler statusHandler = exchange -> {
                 exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
 
-                String status = "{\"streaming\": " + isCapturing + ", \"queueSize\": " + FRAME_QUEUE.size() + "}";
+                String status = String.format(
+                    "{\"streaming\": %b, \"queueSize\": %d, \"wasdEnabled\": %b}",
+                    isCapturing,
+                    FRAME_QUEUE.size(),
+                    isWASDEnabled
+                );
                 exchange.getResponseSender().send(status);
             };
 
-            HttpHandler walkHandler = exchange -> {
-
-//                exchange.getResponseSender().send();
+            HttpHandler controlsHandler = exchange -> {
+                if (exchange.getRequestMethod().toString().equals("POST")) {
+                    exchange.getRequestReceiver().receiveFullString((ex, message) -> {
+                        try {
+                            // Parse the JSON message
+                            com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(message).getAsJsonObject();
+                            
+                            // Update key states
+                            isMovingForward = json.get("w").getAsBoolean();
+                            isMovingBackward = json.get("s").getAsBoolean();
+                            isMovingLeft = json.get("a").getAsBoolean();
+                            isMovingRight = json.get("d").getAsBoolean();
+                            
+                            ex.setStatusCode(200);
+                            ex.getResponseSender().send("OK");
+                        } catch (Exception e) {
+                            LOGGER.error("Error processing key states", e);
+                            ex.setStatusCode(400);
+                            ex.getResponseSender().send("Invalid key states format");
+                        }
+                    });
+                } else {
+                    exchange.setStatusCode(405);
+                    exchange.getResponseSender().send("Method not allowed");
+                }
             };
 
             PathHandler pathHandler = new PathHandler()
                     .addExactPath("/", indexHandler)
                     .addExactPath("/stream", streamHandler)
-                    .addExactPath("/api/status", statusHandler);
+                    .addExactPath("/api/status", statusHandler)
+                    .addExactPath("/api/controls", controlsHandler);
 
             server = Undertow.builder()
                     .addHttpListener(PORT, "0.0.0.0")

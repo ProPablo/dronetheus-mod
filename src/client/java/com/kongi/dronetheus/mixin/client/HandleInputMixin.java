@@ -1,5 +1,6 @@
 package com.kongi.dronetheus.mixin.client;
 
+import com.kongi.dronetheus.DronetheusClient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
@@ -23,8 +24,13 @@ public class HandleInputMixin
     @Inject(at = @At("HEAD"), method = "tick")
     private void tick(CallbackInfo info)
     {
-        options.forwardKey.setPressed(true);
-//        player.getPos();
+        // Only apply WASD controls if they are enabled
+        if (DronetheusClient.isWASDEnabled) {
+            options.forwardKey.setPressed(DronetheusClient.isMovingForward);
+            options.backKey.setPressed(DronetheusClient.isMovingBackward);
+            options.leftKey.setPressed(DronetheusClient.isMovingLeft);
+            options.rightKey.setPressed(DronetheusClient.isMovingRight);
+        }
     }
 
 //    @Inject(at = @At("HEAD"), method = "handleInputEvents")
