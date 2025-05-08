@@ -2,7 +2,6 @@
 <html>
 
 <head>
-
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dronetheus - drone client</title>
@@ -14,95 +13,75 @@
     <link href="https://fonts.googleapis.com/css2?family=Madimi+One&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap"
         rel="stylesheet">
-
-
-
-    <title>Minecraft Screen Stream</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #333;
-            color: #fff;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        img {
-            max-width: 100%;
-            border: 2px solid #555;
-        }
-
-        .status {
-            padding: 10px;
-            margin-bottom: 20px;
-            background-color: #444;
-            border-radius: 5px;
-        }
-
-        .noto-serif {
-            font-weight: 400;
-            font-style: normal;
-            font-family: "Noto Serif", serif;
-            font-optical-sizing: auto;
-        }
-    </style>
 </head>
 
-<body>
-    <div class="container noto-serif" id="app">
-        <h1>Minecraft Screen Stream</h1>
-        <div class="status" :class="{ 'text-red-500': !isConnected, 'text-green-500': isConnected }">
-            Status: {{ streamStatus }}
+<body class="font-sans text-center bg-gray-800 text-white">
+    <div class="max-w-[850px] mx-auto font-['Noto_Serif'] font-normal" id="app">
+        <div class="flex flex-row justify-center items-center">
+            <h1 class="text-4xl text-center text-white">Dronetheus</h1>
+            <button @click="raiseAlarm" type="button"
+                class="btn bg-red-700 hover:bg-red-600 active:bg-red-800 p-4 text-white text-2xl ml-auto">
+                RAISE ALARM
+            </button>
         </div>
-        <img :src="streamUrl" alt="Minecraft Screen Stream" @error="onStreamError" @load="onStreamLoad" ref="streamImage" />
-
-
-      <div class="flex flex-col gap-3 bg-slate-200">
-        <div class="flex flex-col">
-          <h1 :style="{ color: getColor() }" class="text-xl text-center text-black">
-            {{state}}
-          </h1>
+        <!-- On error runs only when you stop loading the page (js can still run when you do that) -->
+        <img v-if="!isConnected" src="https://i1.adis.ws/i/canon/pro-aerial-videography-cinema-eos-video-placeholder-1_4663271f21a04a8cac8fda3ce2e90469" alt="Placeholder" class="max-w-full w-full border-2 border-gray-600" />
+        <img :src="streamUrl" alt="Minecraft Screen Stream" @error="onStreamError" @load="onStreamLoad" class="max-w-full w-full border-2 border-gray-600" :class="{'hidden': !isConnected}" />
+        <div class="p-[10px] mb-[20px] bg-gray-700 rounded text-center" :class="{ 'text-red-500': !isConnected, 'text-green-500': isConnected }">
+            <b>Stream Status:</b> {{ streamStatus }}
         </div>
-        <div class="flex flex-row justify-evenly gap-4">
-          <button @click="changeState('Pre-burn')" type="button"
-            class="btn bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 p-2 w-full">
-            Pre-burn
-          </button>
-          <button @click="changeState('During burn')" type="button"
-            class="btn bg-green-400 hover:bg-green-300 active:bg-green-500 p-2 w-full">
-            During burn
-          </button>
-          <button @click="changeState('Post-burn')" type="button"
-            class="btn bg-red-400 hover:bg-red-300 active:bg-red-500 p-2 w-full">
-            Post-burn
-          </button>
-          <button @click="changeState('Land')" type="button"
-            class="btn bg-pink-400 hover:bg-pink-300 active:bg-pink-500 p-2 w-full">
-            Land
-          </button>
-        </div>
-      </div>
 
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-col">
+                <h1 :style="{ color: getColor() }" class="text-xl text-center text-black">
+                    {{state}}
+                </h1>
+            </div>
+            <div class="flex flex-row justify-evenly gap-4">
+                <button @click="changeState(StateType.PRE_BURN)" type="button"
+                    class="btn bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 p-2 w-full">
+                    Pre-burn
+                </button>
+                <button @click="changeState(StateType.DURING_BURN)" type="button"
+                    class="btn bg-green-400 hover:bg-green-300 active:bg-green-500 p-2 w-full">
+                    During burn
+                </button>
+                <button @click="changeState(StateType.POST_BURN)" type="button"
+                    class="btn bg-red-400 hover:bg-red-300 active:bg-red-500 p-2 w-full">
+                    Post-burn
+                </button>
+                <button @click="changeState(StateType.LAND)" type="button"
+                    class="btn bg-pink-400 hover:bg-pink-300 active:bg-pink-500 p-2 w-full">
+                    Land
+                </button>
+            </div>
+        </div>
     </div>
 
     <script lang="ts">
         const { createApp, ref, computed, onMounted } = Vue;
 
+        // Define the State enum
+        const StateType = {
+            INACTIVE: 'Inactive',
+            PRE_BURN: 'Pre-burn',
+            DURING_BURN: 'During burn',
+            POST_BURN: 'Post-burn',
+            LAND: 'Land'
+        };
+
         createApp({
             setup() {
-                const state = ref("Inactive");
+                const state = ref(StateType.INACTIVE);
                 const isConnected = ref(false);
                 const streamStatus = ref("Connecting...");
                 const streamUrl = ref("/stream");
                 const streamImage = ref(null);
 
-                function changeState(stateToChangeTo) {
-                    state.value = stateToChangeTo;
+                function changeState(newState) {
+                    if (Object.values(StateType).includes(newState)) {
+                        state.value = newState;
+                    }
                 }
 
                 function onStreamError(e) {
@@ -112,6 +91,7 @@
                     setTimeout(() => {
                         streamUrl.value = `/stream?t=${Date.now()}`;
                     }, 5000);
+
                 }
 
                 function onStreamLoad() {
@@ -123,16 +103,16 @@
                 // Function to get the color based on the state
                 function getColor() {
                     switch (state.value) {
-                        case "Pre-burn":
+                        case StateType.PRE_BURN:
                             return "orange";
-                        case "During burn":
+                        case StateType.DURING_BURN:
                             return "green";
-                        case "Post-burn":
+                        case StateType.POST_BURN:
                             return "red";
-                        case "Land":
+                        case StateType.LAND:
                             return "pink";
-                        case "Inactive":
-                            return "black";
+                        case StateType.INACTIVE:
+                            return "white";
                         default:
                             return "black"; // Default color
                     }
@@ -145,28 +125,11 @@
                 onMounted(() => {
                     // Initial stream connection
                     streamUrl.value = `/stream?t=${Date.now()}`;
-                    
-                    // Manually add error handler
-                    const img = document.querySelector('img');
-                    if (img) {
-                        img.onerror = () => {
-                            console.log("Stream error occurred");
-                            isConnected.value = false;
-                            streamStatus.value = "No stream available. Make sure streaming is enabled in-game (press F8)";
-                            setTimeout(() => {
-                                streamUrl.value = `/stream?t=${Date.now()}`;
-                            }, 5000);
-                        };
-                        img.onload = () => {
-                            console.log("Stream loaded successfully");
-                            isConnected.value = true;
-                            streamStatus.value = "Connected";
-                        };
-                    }
                 });
 
                 return {
                     state,
+                    StateType, // Expose the enum to the template
                     isConnected,
                     streamStatus,
                     streamUrl,

@@ -226,7 +226,6 @@ public class DronetheusClient implements ClientModInitializer {
         }
     }
 
-
     // Additional cleanup methods for when the game closes
     public static void shutdown() {
         isCapturing = false;
