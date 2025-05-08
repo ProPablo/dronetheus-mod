@@ -2,19 +2,14 @@ package com.kongi.dronetheus;
 
 import io.undertow.server.HttpServerExchange;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
@@ -34,7 +29,6 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
 
 import static com.kongi.dronetheus.Dronetheus.MOD_ID;
-import com.kongi.dronetheus.FireTruckPositionS2CPayload;
 
 
 public class DronetheusClient implements ClientModInitializer {
@@ -47,21 +41,14 @@ public class DronetheusClient implements ClientModInitializer {
     private static KeyBinding toggleKeybind;
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID + "client");
-    public static ImageWriter ImageWriter;
-
 
     private static KeyBinding walkKeybind;
     public static boolean WalkForward = false;
-
 
     @Override
     public void onInitializeClient() {
         LOGGER.info("Starting Screen Stream Mod");
 
-        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
-        assert writers.hasNext();
-
-        ImageWriter = writers.next();
 
         // Register keybinding to toggle streaming
         toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -137,38 +124,22 @@ public class DronetheusClient implements ClientModInitializer {
             HttpHandler indexHandler = exchange -> {
                 exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
 
-                String response = "<!DOCTYPE html>\n" +
-                        "<html>\n" +
-                        "<head>\n" +
-                        "    <title>Minecraft Screen Stream</title>\n" +
-                        "    <style>\n" +
-                        "        body { font-family: Arial, sans-serif; text-align: center; background-color: #333; color: #fff; }\n" +
-                        "        .container { max-width: 800px; margin: 0 auto; padding: 20px; }\n" +
-                        "        img { max-width: 100%; border: 2px solid #555; }\n" +
-                        "        .status { padding: 10px; margin-bottom: 20px; background-color: #444; border-radius: 5px; }\n" +
-                        "    </style>\n" +
-                        "</head>\n" +
-                        "<body>\n" +
-                        "    <div class=\"container\">\n" +
-                        "        <h1>Minecraft Screen Stream</h1>\n" +
-                        "        <div class=\"status\" id=\"status\">Status: Connecting...</div>\n" +
-                        "        <img src=\"/stream\" alt=\"Minecraft Screen Stream\" id=\"stream\" />\n" +
-                        "    </div>\n" +
-                        "    <script>\n" +
-                        "        document.getElementById('stream').onerror = function() {\n" +
-                        "            document.getElementById('status').innerHTML = 'Status: No stream available. Make sure streaming is enabled in-game (press F8)';\n" +
-                        "            setTimeout(function() {\n" +
-                        "                document.getElementById('stream').src = '/stream?' + new Date().getTime();\n" +
-                        "            }, 5000);\n" +
-                        "        };\n" +
-                        "        document.getElementById('stream').onload = function() {\n" +
-                        "            document.getElementById('status').innerHTML = 'Status: Connected';\n" +
-                        "        };\n" +
-                        "    </script>\n" +
-                        "</body>\n" +
-                        "</html>";
+                try {
+                    InputStream inputStream = getClass().getResourceAsStream("/assets/dronetheus/index.html");
+                    if (inputStream == null) {
+                        exchange.setStatusCode(404);
+                        exchange.getResponseSender().send("404 - Index file not found");
+                        return;
+                    }
 
-                exchange.getResponseSender().send(response);
+                    LOGGER.info("Sent index.html");
+                    String response = new String(inputStream.readAllBytes());
+                    exchange.getResponseSender().send(response);
+                } catch (IOException e) {
+                    LOGGER.error("Failed to read index.html", e);
+                    exchange.setStatusCode(500);
+                    exchange.getResponseSender().send("500 - Internal Server Error");
+                }
             };
 
             // API endpoint for status
@@ -220,6 +191,12 @@ public class DronetheusClient implements ClientModInitializer {
     private static void streamFrames(HttpServerExchange exchange) {
         LOGGER.info("Started client stream from {}", exchange.getRequestPath());
         exchange.startBlocking();
+
+        ImageWriter imageWriter;
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+        assert writers.hasNext();
+        imageWriter = writers.next();
+
         try (OutputStream output = exchange.getOutputStream()) {
             while (!exchange.isComplete()) {
                 try {
@@ -227,7 +204,7 @@ public class DronetheusClient implements ClientModInitializer {
                     ImageData imageData = FRAME_QUEUE.poll(1, TimeUnit.SECONDS);
                     if (imageData != null) {
                         CountFPS();
-                        byte[] frameData = imageData.convertToJpeg();
+                        byte[] frameData = imageData.convertToJpeg(imageWriter);
                         output.write(("--" + BOUNDARY + "\r\n").getBytes());
                         output.write("Content-Type: image/jpeg\r\n".getBytes());
                         output.write(("Content-Length: " + frameData.length + "\r\n\r\n").getBytes());

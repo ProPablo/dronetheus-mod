@@ -48,7 +48,7 @@ public class ImageData {
     }
 
     @Unique
-    public byte[] convertToJpeg() throws IOException {
+    public byte[] convertToJpeg(ImageWriter writer) throws IOException {
 
         // Initialize or reuse the BufferedImage
         if (reusableImage == null || reusableImage.getWidth() != width || reusableImage.getHeight() != height) {
@@ -70,9 +70,6 @@ public class ImageData {
 
         // Reset the ByteArrayOutputStream for reuse
         reusableBaos.reset();
-
-        // Get a JPEGImageWriter directly instead of using ImageIO.write
-        ImageWriter writer = DronetheusClient.ImageWriter;
 
         try (ImageOutputStream ios = ImageIO.createImageOutputStream(reusableBaos)) {
             writer.setOutput(ios);

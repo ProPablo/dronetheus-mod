@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dronetheus - drone client</title>
+    <link rel="icon" type="image/x-icon" href="/static/d.ico" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Madimi+One&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+
+
+
+    <title>Minecraft Screen Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #333;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        img {
+            max-width: 100%;
+            border: 2px solid #555;
+        }
+
+        .status {
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #444;
+            border-radius: 5px;
+        }
+
+        .noto-serif {
+            font-weight: 400;
+            font-style: normal;
+            font-family: "Noto Serif", serif;
+            font-optical-sizing: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container noto-serif" id="app">
+        <h1>Minecraft Screen Stream</h1>
+        <div class="status" :class="{ 'text-red-500': !isConnected, 'text-green-500': isConnected }">
+            Status: {{ streamStatus }}
+        </div>
+        <img :src="streamUrl" alt="Minecraft Screen Stream" @error="onStreamError" @load="onStreamLoad" ref="streamImage" />
+
+
+      <div class="flex flex-col gap-3 bg-slate-200">
+        <div class="flex flex-col">
+          <h1 :style="{ color: getColor() }" class="text-xl text-center text-black">
+            {{state}}
+          </h1>
+        </div>
+        <div class="flex flex-row justify-evenly gap-4">
+          <button @click="changeState('Pre-burn')" type="button"
+            class="btn bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 p-2 w-full">
+            Pre-burn
+          </button>
+          <button @click="changeState('During burn')" type="button"
+            class="btn bg-green-400 hover:bg-green-300 active:bg-green-500 p-2 w-full">
+            During burn
+          </button>
+          <button @click="changeState('Post-burn')" type="button"
+            class="btn bg-red-400 hover:bg-red-300 active:bg-red-500 p-2 w-full">
+            Post-burn
+          </button>
+          <button @click="changeState('Land')" type="button"
+            class="btn bg-pink-400 hover:bg-pink-300 active:bg-pink-500 p-2 w-full">
+            Land
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <script lang="ts">
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const state = ref("Inactive");
+                const isConnected = ref(false);
+                const streamStatus = ref("Connecting...");
+                const streamUrl = ref("/stream");
+                const streamImage = ref(null);
+
+                function changeState(stateToChangeTo) {
+                    state.value = stateToChangeTo;
+                }
+
+                function onStreamError(e) {
+                    console.log("Stream error occurred", e);
+                    isConnected.value = false;
+                    streamStatus.value = "No stream available. Make sure streaming is enabled in-game (press F8)";
+                    setTimeout(() => {
+                        streamUrl.value = `/stream?t=${Date.now()}`;
+                    }, 5000);
+                }
+
+                function onStreamLoad() {
+                    console.log("Stream loaded successfully");
+                    isConnected.value = true;
+                    streamStatus.value = "Connected";
+                }
+
+                // Function to get the color based on the state
+                function getColor() {
+                    switch (state.value) {
+                        case "Pre-burn":
+                            return "orange";
+                        case "During burn":
+                            return "green";
+                        case "Post-burn":
+                            return "red";
+                        case "Land":
+                            return "pink";
+                        case "Inactive":
+                            return "black";
+                        default:
+                            return "black"; // Default color
+                    }
+                }
+
+                async function raiseAlarm() {
+                    console.log("Alarm raised!");
+                }
+
+                onMounted(() => {
+                    // Initial stream connection
+                    streamUrl.value = `/stream?t=${Date.now()}`;
+                    
+                    // Manually add error handler
+                    const img = document.querySelector('img');
+                    if (img) {
+                        img.onerror = () => {
+                            console.log("Stream error occurred");
+                            isConnected.value = false;
+                            streamStatus.value = "No stream available. Make sure streaming is enabled in-game (press F8)";
+                            setTimeout(() => {
+                                streamUrl.value = `/stream?t=${Date.now()}`;
+                            }, 5000);
+                        };
+                        img.onload = () => {
+                            console.log("Stream loaded successfully");
+                            isConnected.value = true;
+                            streamStatus.value = "Connected";
+                        };
+                    }
+                });
+
+                return {
+                    state,
+                    isConnected,
+                    streamStatus,
+                    streamUrl,
+                    streamImage,
+                    changeState,
+                    getColor,
+                    raiseAlarm,
+                    onStreamError,
+                    onStreamLoad
+                };
+            },
+        }).mount("#app");
+    </script>
+</body>
+
+</html>
