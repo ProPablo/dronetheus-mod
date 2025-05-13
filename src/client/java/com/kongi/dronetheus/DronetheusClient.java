@@ -38,11 +38,12 @@ public class DronetheusClient implements ClientModInitializer {
     private static Undertow server;
     public static boolean isCapturing = false;
     private static final int PORT = 8080;
-    private static KeyBinding toggleKeybind;
+    private KeyBinding toggleKeybind;
+    private KeyBinding walkKeybind;
+    private KeyBinding stateChangeKeybind;
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID + "client");
 
-    private static KeyBinding walkKeybind;
     public static boolean WalkForward = false;
 
     // WASD control variables
@@ -51,6 +52,9 @@ public class DronetheusClient implements ClientModInitializer {
     public static boolean isMovingLeft = false;
     public static boolean isMovingRight = false;
     public static boolean isWASDEnabled = false;  // New toggle state
+
+//    public static DroneState state = DroneState.InactiveOrManualControl;
+    public static Tracking tracking = new Tracking();
 
     @Override
     public void onInitializeClient() {
@@ -72,6 +76,13 @@ public class DronetheusClient implements ClientModInitializer {
                 "category.dronetheus.general"
         ));
 
+        stateChangeKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.dronetheus.statechange",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_F10,
+                "category.dronetheus.general"
+        ));
+
         // Start web server
         startServer();
 
@@ -80,44 +91,67 @@ public class DronetheusClient implements ClientModInitializer {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player != null) {
                 Vec3d position = payload.fireTruckLoc();
-                client.player.sendMessage(
-                    Text.literal("Received position update: " + 
-                        String.format("%.2f, %.2f, %.2f", position.x, position.y, position.z))
-                        .formatted(Formatting.GREEN),
-                    false
-                );
+                tracking.NewOtherPlayerPos(position);
+//                client.player.sendMessage(
+//                    Text.literal("Received position update: " +
+//                        String.format("%.2f, %.2f, %.2f", position.x, position.y, position.z))
+//                        .formatted(Formatting.GREEN),
+//                    false
+//                );
             }
         });
 
         // Set up screen capture on client tick
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Check for keybinding press
-            while (toggleKeybind.wasPressed()) {
-                isCapturing = !isCapturing;
-                String status = isCapturing ? "enabled" : "disabled";
-                if (client.player != null) {
-                    client.player.sendMessage(
-                            Text.literal("Screen streaming " + status)
-                                    .formatted(isCapturing ? Formatting.GREEN : Formatting.RED),
-                            false
-                    );
-                }
-            }
-
-            // Check for WASD control toggle
-            while (walkKeybind.wasPressed()) {
-                isWASDEnabled = !isWASDEnabled;
-                if (client.player != null) {
-                    client.player.sendMessage(
-                            Text.literal("WASD controls " + (isWASDEnabled ? "enabled" : "disabled"))
-                                    .formatted(isWASDEnabled ? Formatting.GREEN : Formatting.RED),
-                            false
-                    );
-                }
-            }
+            HandleKeybinds(client);
+//            if (state == DroneState.PreBurn) {
+                tracking.TickUpdate(client);
+//            }
         });
+    }
 
+    private void HandleKeybinds(MinecraftClient client) {
 
+        // Check for keybinding press
+        while (toggleKeybind.wasPressed()) {
+            isCapturing = !isCapturing;
+            String status = isCapturing ? "enabled" : "disabled";
+            if (client.player != null) {
+                client.player.sendMessage(
+                        Text.literal("Screen streaming " + status)
+                                .formatted(isCapturing ? Formatting.GREEN : Formatting.RED),
+                        false
+                );
+            }
+        }
+
+        // Check for WASD control toggle
+        while (walkKeybind.wasPressed()) {
+            isWASDEnabled = !isWASDEnabled;
+            if (client.player != null) {
+                client.player.sendMessage(
+                        Text.literal("WASD controls " + (isWASDEnabled ? "enabled" : "disabled"))
+                                .formatted(isWASDEnabled ? Formatting.GREEN : Formatting.RED),
+                        false
+                );
+            }
+        }
+
+//        while (stateChangeKeybind.wasPressed()) {
+//            // Get the next state in the sequence
+//            DroneState[] states = DroneState.values();
+//            int currentIndex = state.ordinal();
+//            int nextIndex = (currentIndex + 1) % states.length;
+//            state = states[nextIndex];
+//
+//            if (client.player != null) {
+//                client.player.sendMessage(
+//                        Text.literal("Drone state changed to: " + state)
+//                                .formatted(Formatting.GREEN),
+//                        false
+//                );
+//            }
+//        }
     }
 
     private void startServer() {

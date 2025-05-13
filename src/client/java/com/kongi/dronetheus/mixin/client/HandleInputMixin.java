@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+//We dont need a mixin since we can control the client directly in the client loop
 @Mixin(MinecraftClient.class)
 public class HandleInputMixin
 {

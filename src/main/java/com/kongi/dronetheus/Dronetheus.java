@@ -99,7 +99,7 @@ public class Dronetheus implements ModInitializer {
 					if (firstPlayer != null && secondPlayer != null) {
 						var payload = new FireTruckPositionS2CPayload(secondPlayer.getPos());
 						ServerPlayNetworking.send(firstPlayer, payload);
-						LOGGER.info("Sent position of {} to {}", secondPlayer.getName().getString(), firstPlayer.getName().getString());
+//						LOGGER.info("Sent position of {} to {}", secondPlayer.getName().getString(), firstPlayer.getName().getString());
 					}
 				}
 			}
