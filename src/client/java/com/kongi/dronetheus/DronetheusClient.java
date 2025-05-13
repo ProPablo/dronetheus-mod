@@ -53,7 +53,7 @@ public class DronetheusClient implements ClientModInitializer {
     public static boolean isMovingRight = false;
     public static boolean isWASDEnabled = false;  // New toggle state
 
-//    public static DroneState state = DroneState.InactiveOrManualControl;
+    public static DroneState state = DroneState.InactiveOrManualControl;
     public static Tracking tracking = new Tracking();
 
     @Override
@@ -104,10 +104,20 @@ public class DronetheusClient implements ClientModInitializer {
         // Set up screen capture on client tick
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             HandleKeybinds(client);
-//            if (state == DroneState.PreBurn) {
+            if (state == DroneState.PreBurn) {
                 tracking.TickUpdate(client);
-//            }
+            }
+            ManualControl(client);
         });
+    }
+
+    private void ManualControl(MinecraftClient client) {
+        if (isWASDEnabled) {
+            client.options.forwardKey.setPressed(DronetheusClient.isMovingForward);
+            client.options.backKey.setPressed(DronetheusClient.isMovingBackward);
+            client.options.leftKey.setPressed(DronetheusClient.isMovingLeft);
+            client.options.rightKey.setPressed(DronetheusClient.isMovingRight);
+        }
     }
 
     private void HandleKeybinds(MinecraftClient client) {
@@ -137,21 +147,30 @@ public class DronetheusClient implements ClientModInitializer {
             }
         }
 
-//        while (stateChangeKeybind.wasPressed()) {
-//            // Get the next state in the sequence
-//            DroneState[] states = DroneState.values();
-//            int currentIndex = state.ordinal();
-//            int nextIndex = (currentIndex + 1) % states.length;
-//            state = states[nextIndex];
-//
-//            if (client.player != null) {
-//                client.player.sendMessage(
-//                        Text.literal("Drone state changed to: " + state)
-//                                .formatted(Formatting.GREEN),
-//                        false
-//                );
-//            }
-//        }
+        while (stateChangeKeybind.wasPressed()) {
+            // Get the next state in the sequence
+            DroneState[] states = DroneState.values();
+            int currentIndex = state.ordinal();
+            int nextIndex = (currentIndex + 1) % states.length;
+            state = states[nextIndex];
+
+            if (client.player != null) {
+                client.player.sendMessage(
+                        Text.literal("Drone state changed to: " + state)
+                                .formatted(Formatting.GREEN),
+                        false
+                );
+            }
+        }
+    }
+
+    private DroneStatus getDroneStatus() {
+        return new DroneStatus(
+            isCapturing,
+            FRAME_QUEUE.size(),
+            isWASDEnabled,
+            state.name()
+        ); 
     }
 
     private void startServer() {
@@ -194,14 +213,36 @@ public class DronetheusClient implements ClientModInitializer {
             // API endpoint for status
             HttpHandler statusHandler = exchange -> {
                 exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                DroneStatus status = getDroneStatus();
+                String json = new com.google.gson.Gson().toJson(status);
+                exchange.getResponseSender().send(json);
+            };
 
-                String status = String.format(
-                    "{\"streaming\": %b, \"queueSize\": %d, \"wasdEnabled\": %b}",
-                    isCapturing,
-                    FRAME_QUEUE.size(),
-                    isWASDEnabled
-                );
-                exchange.getResponseSender().send(status);
+            // API endpoint for state change
+            HttpHandler stateHandler = exchange -> {
+                if (exchange.getRequestMethod().toString().equals("POST")) {
+                    exchange.getRequestReceiver().receiveFullString((ex, message) -> {
+                        try {
+                            com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(message).getAsJsonObject();
+                            String newState = json.get("state").getAsString();
+                            DroneState desiredState = DroneState.valueOf(newState);
+                            state = desiredState;
+
+                DroneStatus status = getDroneStatus();
+                            String responseJson = new com.google.gson.Gson().toJson(status);
+                            ex.setStatusCode(200);
+                            ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                            ex.getResponseSender().send(responseJson);
+                        } catch (Exception e) {
+                            LOGGER.error("Error processing state change", e);
+                            ex.setStatusCode(400);
+                            ex.getResponseSender().send("Invalid state format");
+                        }
+                    });
+                } else {
+                    exchange.setStatusCode(405);
+                    exchange.getResponseSender().send("Method not allowed");
+                }
             };
 
             HttpHandler controlsHandler = exchange -> {
@@ -235,7 +276,8 @@ public class DronetheusClient implements ClientModInitializer {
                     .addExactPath("/", indexHandler)
                     .addExactPath("/stream", streamHandler)
                     .addExactPath("/api/status", statusHandler)
-                    .addExactPath("/api/controls", controlsHandler);
+                    .addExactPath("/api/controls", controlsHandler)
+                    .addExactPath("/api/state", stateHandler);
 
             server = Undertow.builder()
                     .addHttpListener(PORT, "0.0.0.0")
@@ -326,5 +368,19 @@ public class DronetheusClient implements ClientModInitializer {
                 throw new IllegalStateException("Frame queue is full");
             }
         }
+    }
+}
+
+// Add this class at the top-level (outside DronetheusClient)
+class DroneStatus {
+    public boolean streaming;
+    public int queueSize;
+    public boolean wasdEnabled;
+    public String state;
+    public DroneStatus(boolean streaming, int queueSize, boolean wasdEnabled, String state) {
+        this.streaming = streaming;
+        this.queueSize = queueSize;
+        this.wasdEnabled = wasdEnabled;
+        this.state = state;
     }
 }

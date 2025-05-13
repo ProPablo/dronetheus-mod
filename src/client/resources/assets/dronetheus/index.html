@@ -25,15 +25,19 @@
             </button>
         </div>
         <!-- On error runs only when you stop loading the page (js can still run when you do that) -->
-        <img v-if="!isConnected" src="https://i1.adis.ws/i/canon/pro-aerial-videography-cinema-eos-video-placeholder-1_4663271f21a04a8cac8fda3ce2e90469" alt="Placeholder" class="max-w-full w-full border-2 border-gray-600" />
-        <img :src="streamUrl" alt="Minecraft Screen Stream" @error="onStreamError" @load="onStreamLoad" class="max-w-full w-full border-2 border-gray-600" :class="{'hidden': !isConnected}" />
-        <div class="p-[10px] mb-[20px] bg-gray-700 rounded text-center" :class="{ 'text-red-500': !isConnected, 'text-green-500': isConnected }">
+        <img v-if="!isConnected"
+            src="https://i1.adis.ws/i/canon/pro-aerial-videography-cinema-eos-video-placeholder-1_4663271f21a04a8cac8fda3ce2e90469"
+            alt="Placeholder" class="max-w-full w-full border-2 border-gray-600" />
+        <img :src="streamUrl" alt="Minecraft Screen Stream" @error="onStreamError" @load="onStreamLoad"
+            class="max-w-full w-full border-2 border-gray-600" :class="{'hidden': !isConnected}" />
+        <div class="p-[10px] mb-[20px] bg-gray-700 rounded text-center"
+            :class="{ 'text-red-500': !isConnected, 'text-green-500': isConnected }">
             <b>Stream Status:</b> {{ streamStatus }}
         </div>
 
         <div class="flex flex-col gap-3">
             <div class="flex flex-col">
-                <h1 :style="{ color: getColor() }" class="text-xl text-center text-black">
+                <h1 :style="{ color: getStateTextColour() }" class="text-xl text-center text-black">
                     {{state}}
                 </h1>
             </div>
@@ -69,28 +73,28 @@
             </div>
             <div class="grid grid-cols-3 gap-2 max-w-[150px] mx-auto">
                 <div></div>
-                <button @mousedown="updateKeyState('w', true)" @mouseup="updateKeyState('w', false)" @mouseleave="updateKeyState('w', false)"
-                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
-                    :disabled="!wasdEnabled"
+                <button @mousedown="updateKeyState('w', true)" @mouseup="updateKeyState('w', false)"
+                    @mouseleave="updateKeyState('w', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold" :disabled="!wasdEnabled"
                     :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
                     W
                 </button>
                 <div></div>
-                <button @mousedown="updateKeyState('a', true)" @mouseup="updateKeyState('a', false)" @mouseleave="updateKeyState('a', false)"
-                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
-                    :disabled="!wasdEnabled"
+                <button @mousedown="updateKeyState('a', true)" @mouseup="updateKeyState('a', false)"
+                    @mouseleave="updateKeyState('a', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold" :disabled="!wasdEnabled"
                     :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
                     A
                 </button>
-                <button @mousedown="updateKeyState('s', true)" @mouseup="updateKeyState('s', false)" @mouseleave="updateKeyState('s', false)"
-                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
-                    :disabled="!wasdEnabled"
+                <button @mousedown="updateKeyState('s', true)" @mouseup="updateKeyState('s', false)"
+                    @mouseleave="updateKeyState('s', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold" :disabled="!wasdEnabled"
                     :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
                     S
                 </button>
-                <button @mousedown="updateKeyState('d', true)" @mouseup="updateKeyState('d', false)" @mouseleave="updateKeyState('d', false)"
-                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold"
-                    :disabled="!wasdEnabled"
+                <button @mousedown="updateKeyState('d', true)" @mouseup="updateKeyState('d', false)"
+                    @mouseleave="updateKeyState('d', false)"
+                    class="btn bg-blue-400 hover:bg-blue-300 active:bg-blue-500 p-2 font-bold" :disabled="!wasdEnabled"
                     :class="{ 'opacity-50 cursor-not-allowed': !wasdEnabled }">
                     D
                 </button>
@@ -127,12 +131,12 @@
                     d: false
                 });
 
-                // Set up interval to send key states
                 let keyStateInterval;
+                let droneStatusCheckInterval;
                 onMounted(() => {
                     // Initial stream connection
                     streamUrl.value = `/stream?t=${Date.now()}`;
-                    
+
                     // Set up interval to send key states every 200ms
                     keyStateInterval = setInterval(() => {
                         if (wasdEnabled.value) {
@@ -141,7 +145,7 @@
                     }, 200);
 
                     // Set up interval to check WASD status
-                    setInterval(checkWASDStatus, 1000);
+                    droneStatusCheckInterval = setInterval(checkDroneStatus, 1000);
                 });
 
                 // Clean up interval when component is unmounted
@@ -151,18 +155,69 @@
                     }
                 });
 
-                function checkWASDStatus() {
+                function checkDroneStatus() {
                     fetch('/api/status')
                         .then(response => response.json())
                         .then(data => {
-                            wasdEnabled.value = data.wasdEnabled;
+                            updateState(data);
                         })
                         .catch(error => console.error('Error checking WASD status:', error));
                 }
 
+                function updateState(data) {
+                    wasdEnabled.value = data.wasdEnabled;
+                    state.value = enumToUiState(data.state);
+                }
+
                 function changeState(newState) {
                     if (Object.values(StateType).includes(newState)) {
-                        state.value = newState;
+                        // Send state change to server using enum name
+                        fetch('/api/state', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ state: uiStateToEnum(newState) })
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                updateState(data);
+                            })
+                            .catch(error => console.error('Error changing state:', error));
+                    }
+                }
+
+                // Helper: UI label to enum name
+                function uiStateToEnum(uiState) {
+                    switch (uiState) {
+                        case StateType.INACTIVE:
+                            return 'InactiveOrManualControl';
+                        case StateType.PRE_BURN:
+                            return 'PreBurn';
+                        case StateType.DURING_BURN:
+                            return 'DuringBurn';
+                        case StateType.POST_BURN:
+                            return 'PostBurn';
+                        case StateType.LAND:
+                            return 'Landing';
+                        default:
+                            return 'InactiveOrManualControl';
+                    }
+                }
+
+                // Helper: enum name to UI label
+                function enumToUiState(enumName) {
+                    switch (enumName) {
+                        case 'InactiveOrManualControl':
+                            return StateType.INACTIVE;
+                        case 'PreBurn':
+                            return StateType.PRE_BURN;
+                        case 'DuringBurn':
+                            return StateType.DURING_BURN;
+                        case 'PostBurn':
+                            return StateType.POST_BURN;
+                        case 'Landing':
+                            return StateType.LAND;
+                        default:
+                            return StateType.INACTIVE;
                     }
                 }
 
@@ -197,8 +252,7 @@
                     streamStatus.value = "Connected";
                 }
 
-                // Function to get the color based on the state
-                function getColor() {
+                function getStateTextColour() {
                     switch (state.value) {
                         case StateType.PRE_BURN:
                             return "orange";
@@ -228,7 +282,7 @@
                     streamImage,
                     wasdEnabled,
                     changeState,
-                    getColor,
+                    getStateTextColour,
                     raiseAlarm,
                     onStreamError,
                     onStreamLoad,
