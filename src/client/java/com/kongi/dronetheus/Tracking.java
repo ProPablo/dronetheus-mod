@@ -13,13 +13,14 @@ public class Tracking {
     // Movement limits
     private static final double MAX_VELOCITY = 0.2; // Maximum velocity in blocks per tick
     private static final double MAX_INTEGRAL = 2.0; // Maximum integral term to prevent windup
+    private static final double EPSILON = 0.1; // Distance threshold to stop movement adjustments
     
     // PID controller state
     private Vec3d integralError = new Vec3d(0, 0, 0);
     private Vec3d lastError = new Vec3d(0, 0, 0);
     
     // Target offset from the player we're tracking (only X and Y)
-    private Vec3d targetOffset = new Vec3d(2, 2, 0); // Example offset: 2 blocks right and up
+    private Vec3d targetOffset = new Vec3d(10, 10, 0); // Example offset: 2 blocks right and up
     
     // Current positions
     public Vec3d trackingPlayerPos = null;
@@ -42,7 +43,21 @@ public class Tracking {
         // Calculate error (difference between current and target position)
         Vec3d error = targetPos.subtract(currentPos);
         
-        // Update integral error with clamping
+        // Check if we're close enough to target position
+        double distanceToTarget = error.length();
+        if (distanceToTarget <= EPSILON) {
+            // Reset integral error when we're in position to prevent drift
+            integralError = new Vec3d(0, 0, 0);
+            // Stop movement
+            if (client.player != null) {
+                client.player.setVelocity(0, 0, 0);
+            }
+            // Still update camera angles
+            updateCameraAngles(client);
+            return;
+        }
+
+        // Update integral error with clamping to prevent windup
         Vec3d newIntegral = integralError.add(error.multiply(0.05)); // 0.05 is the time step
         integralError = new Vec3d(
             MathHelper.clamp(newIntegral.x, -MAX_INTEGRAL, MAX_INTEGRAL),
@@ -110,8 +125,7 @@ public class Tracking {
         trackingPlayerPos = playerPos;
     }
     
-    // Method to set the target offset (only X and Y will be used)
     public void setTargetOffset(Vec3d offset) {
-        this.targetOffset = new Vec3d(offset.x, offset.y, 0);
+        this.targetOffset = new Vec3d(offset.x, offset.y, offset.z);
     }
 }
