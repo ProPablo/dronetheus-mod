@@ -3,7 +3,8 @@
 	"package": "com.kongi.dronetheus.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"FireSimulationMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

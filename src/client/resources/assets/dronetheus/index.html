@@ -24,6 +24,39 @@
                 RAISE ALARM
             </button>
         </div>
+
+        <!-- Wind Control Panel -->
+        <div class="bg-gray-800 p-4 rounded-lg mt-4">
+            <h2 class="text-2xl text-white mb-4">Wind Control</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-white block mb-2">Wind Strength</label>
+                    <input type="range" v-model="windStrength" min="0" max="1" step="0.1"
+                        class="w-full bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                        @input="updateWind">
+                    <span class="text-white">{{ (windStrength * 100).toFixed(0) }}%</span>
+                </div>
+                <div>
+                    <label class="text-white block mb-2">Wind Direction</label>
+                    <div class="relative w-32 h-32 mx-auto">
+                        <div class="absolute inset-0 bg-gray-700 rounded-full"></div>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-1 h-1 bg-red-500 rounded-full"></div>
+                        </div>
+                        <div class="absolute inset-0"
+                            @mousedown="startWindDirectionDrag"
+                            @mousemove="updateWindDirection"
+                            @mouseup="stopWindDirectionDrag"
+                            @mouseleave="stopWindDirectionDrag">
+                            <div class="absolute w-3 h-3 bg-blue-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"
+                                :style="{ left: windDirectionX + '%', top: windDirectionY + '%' }">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- On error runs only when you stop loading the page (js can still run when you do that) -->
         <img v-if="!isConnected"
             src="https://i1.adis.ws/i/canon/pro-aerial-videography-cinema-eos-video-placeholder-1_4663271f21a04a8cac8fda3ce2e90469"
@@ -130,6 +163,12 @@
                     s: false,
                     d: false
                 });
+
+                // Add wind control state
+                const windStrength = ref(0);
+                const windDirectionX = ref(50);
+                const windDirectionY = ref(50);
+                const isDraggingDirection = ref(false);
 
                 let keyStateInterval;
                 let droneStatusCheckInterval;
@@ -273,6 +312,66 @@
                     console.log("Alarm raised!");
                 }
 
+                // Convert UI coordinates to normalized direction
+                function getWindDirection() {
+                    const x = (windDirectionX.value - 50) / 50;
+                    const z = (windDirectionY.value - 50) / 50;
+                    return { x, z };
+                }
+
+                function updateWind() {
+                    const direction = getWindDirection();
+                    fetch('/api/wind', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            strength: windStrength.value,
+                            directionX: direction.x,
+                            directionZ: direction.z
+                        })
+                    }).catch(error => console.error('Error updating wind:', error));
+                }
+
+                function startWindDirectionDrag(event) {
+                    isDraggingDirection.value = true;
+                    updateWindDirectionFromEvent(event);
+                }
+
+                function stopWindDirectionDrag() {
+                    isDraggingDirection.value = false;
+                }
+
+                function updateWindDirection(event) {
+                    if (isDraggingDirection.value) {
+                        updateWindDirectionFromEvent(event);
+                    }
+                }
+
+                function updateWindDirectionFromEvent(event) {
+                    const rect = event.target.getBoundingClientRect();
+                    const x = ((event.clientX - rect.left) / rect.width) * 100;
+                    const y = ((event.clientY - rect.top) / rect.height) * 100;
+                    
+                    windDirectionX.value = Math.max(0, Math.min(100, x));
+                    windDirectionY.value = Math.max(0, Math.min(100, y));
+                    
+                    updateWind();
+                }
+
+                // Fetch initial wind parameters
+                fetch('/api/wind')
+                    .then(response => response.json())
+                    .then(data => {
+                        windStrength.value = data.strength;
+                        const x = (data.directionX * 50) + 50;
+                        const y = (data.directionZ * 50) + 50;
+                        windDirectionX.value = x;
+                        windDirectionY.value = y;
+                    })
+                    .catch(error => console.error('Error fetching wind parameters:', error));
+
                 return {
                     state,
                     StateType,
@@ -286,7 +385,14 @@
                     raiseAlarm,
                     onStreamError,
                     onStreamLoad,
-                    updateKeyState
+                    updateKeyState,
+                    windStrength,
+                    windDirectionX,
+                    windDirectionY,
+                    updateWind,
+                    startWindDirectionDrag,
+                    stopWindDirectionDrag,
+                    updateWindDirection
                 };
             },
         }).mount("#app");

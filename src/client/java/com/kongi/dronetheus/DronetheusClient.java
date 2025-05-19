@@ -272,12 +272,52 @@ public class DronetheusClient implements ClientModInitializer {
                 }
             };
 
+            // Add wind control endpoint
+            HttpHandler windHandler = exchange -> {
+                if (exchange.getRequestMethod().toString().equals("POST")) {
+                    exchange.getRequestReceiver().receiveFullString((ex, message) -> {
+                        try {
+                            com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(message).getAsJsonObject();
+                            
+                            // Extract wind parameters
+                            double strength = json.get("strength").getAsDouble();
+                            double directionX = json.get("directionX").getAsDouble();
+                            double directionZ = json.get("directionZ").getAsDouble();
+                            
+                            // Update wind parameters
+                            WindManager.getInstance().updateWind(strength, directionX, directionZ);
+                            
+                            ex.setStatusCode(200);
+                            ex.getResponseSender().send("Wind parameters updated successfully");
+                        } catch (Exception e) {
+                            LOGGER.error("Error processing wind parameters", e);
+                            ex.setStatusCode(400);
+                            ex.getResponseSender().send("Invalid wind parameters format");
+                        }
+                    });
+                } else if (exchange.getRequestMethod().toString().equals("GET")) {
+                    // Return current wind parameters
+                    WindManager.WindParameters wind = WindManager.getInstance().getWindParameters();
+                    com.google.gson.JsonObject response = new com.google.gson.JsonObject();
+                    response.addProperty("strength", wind.strength());
+                    response.addProperty("directionX", wind.directionX());
+                    response.addProperty("directionZ", wind.directionZ());
+                    
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(response.toString());
+                } else {
+                    exchange.setStatusCode(405);
+                    exchange.getResponseSender().send("Method not allowed");
+                }
+            };
+
             PathHandler pathHandler = new PathHandler()
                     .addExactPath("/", indexHandler)
                     .addExactPath("/stream", streamHandler)
                     .addExactPath("/api/status", statusHandler)
                     .addExactPath("/api/controls", controlsHandler)
-                    .addExactPath("/api/state", stateHandler);
+                    .addExactPath("/api/state", stateHandler)
+                    .addExactPath("/api/wind", windHandler);
 
             server = Undertow.builder()
                     .addHttpListener(PORT, "0.0.0.0")
