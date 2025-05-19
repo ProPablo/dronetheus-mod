@@ -92,6 +92,9 @@ public class DronetheusClient implements ClientModInitializer {
             if (client.player != null) {
                 Vec3d position = payload.fireTruckLoc();
                 tracking.NewOtherPlayerPos(position);
+                //TODO: use this for particles gaming
+//                client.player.networkHandler.sendCommand()
+
 //                client.player.sendMessage(
 //                    Text.literal("Received position update: " +
 //                        String.format("%.2f, %.2f, %.2f", position.x, position.y, position.z))

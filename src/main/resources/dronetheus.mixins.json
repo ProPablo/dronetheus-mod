@@ -3,6 +3,7 @@
 	"package": "com.kongi.dronetheus.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"FireBlockAccessor",
 		"ExampleMixin",
 		"FireSimulationMixin"
 	],
