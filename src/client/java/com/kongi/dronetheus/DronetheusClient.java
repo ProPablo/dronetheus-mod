@@ -196,12 +196,12 @@ public class DronetheusClient implements ClientModInitializer {
                 exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
 
                 try {
-                    InputStream inputStream = getClass().getResourceAsStream("/assets/dronetheus/index.html");
-                    if (inputStream == null) {
-                        exchange.setStatusCode(404);
-                        exchange.getResponseSender().send("404 - Index file not found");
-                        return;
-                    }
+                        InputStream inputStream = getClass().getResourceAsStream("/assets/dronetheus/index.html");
+                        if (inputStream == null) {
+                            exchange.setStatusCode(404);
+                            exchange.getResponseSender().send("404 - Index file not found");
+                            return;
+                        }
 
                     LOGGER.info("Sent index.html");
                     String response = new String(inputStream.readAllBytes());
@@ -288,7 +288,7 @@ public class DronetheusClient implements ClientModInitializer {
                             double directionZ = json.get("directionZ").getAsDouble();
                             
                             // Update wind parameters
-                            WindManager.getInstance().updateWind(strength, directionX, directionZ);
+                            WindManager.getInstance().currentWind = new WindManager.WindParameters(strength, directionX, directionZ);
                             
                             ex.setStatusCode(200);
                             ex.getResponseSender().send("Wind parameters updated successfully");
@@ -300,7 +300,7 @@ public class DronetheusClient implements ClientModInitializer {
                     });
                 } else if (exchange.getRequestMethod().toString().equals("GET")) {
                     // Return current wind parameters
-                    WindManager.WindParameters wind = WindManager.getInstance().getWindParameters();
+                    WindManager.WindParameters wind = WindManager.getInstance().currentWind;
                     com.google.gson.JsonObject response = new com.google.gson.JsonObject();
                     response.addProperty("strength", wind.strength());
                     response.addProperty("directionX", wind.directionX());

@@ -1,14 +1,18 @@
 package com.kongi.dronetheus.mixin;
 
+import com.kongi.dronetheus.WindManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FireBlock;
 import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.state.property.IntProperty;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameRules;
+import org.joml.Vector2d;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -93,15 +97,29 @@ public class FireSimulationMixin {
 
                                 mutable.set(pos, x, height, z);
 
-                                //Checks if this position has nearby flamabble blocks
+                                //Checks if this position has nearby flammable blocks
                                 int posBurnChance = accessor.invokeGetBurnChance(world, mutable);
                                 if (posBurnChance > 0) {
                                     int burnChanceModifier = (posBurnChance + 40 + world.getDifficulty().getId() * 7) / (age + 30);
                                     if (isBiomeFlamabble) {
                                         burnChanceModifier /= 2;
                                     }
-//                                    burnChanceModifier *= 100;
 
+                                    //region Custom Burn code
+                                    var currentWind = WindManager.getInstance().currentWind;
+                                    Vec2f currentWindVec = new Vec2f((float) (currentWind.directionX()),(float) (currentWind.directionZ()));
+                                    var currentVec = new Vec2f((float) x, (float) z);
+                                    var dot = currentWindVec.dot(currentVec);
+                                    //Normalize the dot product to another range:
+
+                                    var burnChanceMult = MathHelper.map(dot, -1, 1, -currentWind.strength(), currentWind.strength());
+                                    burnChanceModifier += burnChanceMult;
+//                                    if (x > 0) {
+//                                        burnChanceModifier *= 100;
+//                                    }
+                                    //endregion
+
+                                    //Usually : brunChanceModifier ~=1, heightModifier ~=100 (when single block of fire on a lot of wood)
                                     if (burnChanceModifier > 0 && random.nextInt(heightModifier) <= burnChanceModifier && (!world.isRaining() || !accessor.invokeIsRainingAround(world, mutable))) {
                                         int r = Math.min(15, age + random.nextInt(5) / 4);
                                         world.setBlockState(mutable, accessor.invokeGetStateWithAge(world, mutable, r), 3);

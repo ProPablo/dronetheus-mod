@@ -1,8 +1,10 @@
 package com.kongi.dronetheus;
 
+import net.minecraft.util.math.Vec2f;
+
 public class WindManager {
     private static WindManager instance;
-    private WindParameters currentWind;
+    public WindParameters currentWind;
 
     private WindManager() {
         // Initialize with no wind
@@ -15,25 +17,5 @@ public class WindManager {
         }
         return instance;
     }
-
-    public void updateWind(double strength, double directionX, double directionZ) {
-        // Normalize direction vector
-        double length = Math.sqrt(directionX * directionX + directionZ * directionZ);
-        if (length > 0) {
-            directionX /= length;
-            directionZ /= length;
-        }
-        
-        // Clamp wind strength between 0 and 1
-        strength = Math.max(0, Math.min(1, strength));
-        
-        currentWind = new WindParameters(strength, directionX, directionZ);
-    }
-
-    public WindParameters getWindParameters() {
-        return currentWind;
-    }
-
-    // Record to store wind parameters
     public record WindParameters(double strength, double directionX, double directionZ) {}
 }
