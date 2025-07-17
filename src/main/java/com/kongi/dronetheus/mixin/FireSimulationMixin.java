@@ -1,6 +1,8 @@
 package com.kongi.dronetheus.mixin;
 
+import com.kongi.dronetheus.Dronetheus;
 import com.kongi.dronetheus.WindManager;
+import net.minecraft.block.AbstractFireBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FireBlock;
 import net.minecraft.registry.tag.BiomeTags;
@@ -12,6 +14,7 @@ import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameRules;
+import net.minecraft.world.World;
 import org.joml.Vector2d;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -134,4 +137,7 @@ public class FireSimulationMixin {
         }
         ci.cancel();
     }
+
+
+
 }

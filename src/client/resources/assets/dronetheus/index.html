@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dronetheus - drone client</title>
     <link rel="icon" type="image/x-icon" href="/static/d.ico" />
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/3.4.2/gl-matrix-min.js" crossorigin="anonymous" defer>
     </script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -200,9 +200,10 @@
                     fetch('/api/wind')
                         .then(response => response.json())
                         .then(data => {
+                            debugger;
                             windStrength.value = data.strength;
-                            const x = (data.directionX * 50) + 50;
-                            const y = (data.directionZ * 50) + 50;
+                            const direction = { x: data.directionX, z: data.directionZ };
+                            const {x, y} = windNormalized2Pixel(direction);
                             windDirectionX.value = x;
                             windDirectionY.value = y;
                         })
@@ -337,7 +338,7 @@
 
                 function updateWind() {
 
-                    const direction = getWindDirection();
+                    const direction = windPixel2Normalized();
                     fetch('/api/wind', {
                         method: 'POST',
                         headers: {
@@ -369,7 +370,7 @@
                 const maxMag = 128 / 2;
 
                 // Convert UI coordinates to normalized direction
-                function getWindDirection() {
+                function windPixel2Normalized() {
                     const { vec2 } = glMatrix;
                     // debugger;
 
@@ -384,6 +385,17 @@
                     }
 
                     return { x: directionalVector[0], z: directionalVector[1] };
+                }
+
+                function windNormalized2Pixel(normalized) {
+                    const { vec2 } = glMatrix;
+                    const relOrigin2Center = vec2.fromValues(maxMag, maxMag);
+                    const directionalVector = vec2.fromValues(normalized.x, normalized.z);
+
+                    vec2.scale(directionalVector, directionalVector, maxMag);
+                    vec2.add(directionalVector, directionalVector, relOrigin2Center);
+
+                    return { x: directionalVector[0], y: directionalVector[1] };
                 }
 
                 function updateWindDirectionFromEvent(event) {

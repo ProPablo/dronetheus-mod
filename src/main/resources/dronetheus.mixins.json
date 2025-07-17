@@ -5,7 +5,9 @@
 	"mixins": [
 		"FireBlockAccessor",
 		"ExampleMixin",
-		"FireSimulationMixin"
+		"FireSimulationMixin",
+		"FireParticlesMixin",
+		"AbstractFireBlockAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

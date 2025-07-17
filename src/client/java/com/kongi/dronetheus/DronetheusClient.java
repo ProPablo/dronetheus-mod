@@ -5,8 +5,10 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.particle.EndRodParticle;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -60,6 +62,7 @@ public class DronetheusClient implements ClientModInitializer {
     public void onInitializeClient() {
         LOGGER.info("Starting Screen Stream Mod");
 
+        ParticleFactoryRegistry.getInstance().register(DronetheusCommon.THICK_SMOKE_PARTICLE, ThickSmokeParticle.Factory::new);
 
         // Register keybinding to toggle streaming
         toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -92,15 +95,6 @@ public class DronetheusClient implements ClientModInitializer {
             if (client.player != null) {
                 Vec3d position = payload.fireTruckLoc();
                 tracking.NewOtherPlayerPos(position);
-                //TODO: use this for particles gaming
-//                client.player.networkHandler.sendCommand()
-
-//                client.player.sendMessage(
-//                    Text.literal("Received position update: " +
-//                        String.format("%.2f, %.2f, %.2f", position.x, position.y, position.z))
-//                        .formatted(Formatting.GREEN),
-//                    false
-//                );
             }
         });
 
@@ -411,19 +405,5 @@ public class DronetheusClient implements ClientModInitializer {
                 throw new IllegalStateException("Frame queue is full");
             }
         }
-    }
-}
-
-// Add this class at the top-level (outside DronetheusClient)
-class DroneStatus {
-    public boolean streaming;
-    public int queueSize;
-    public boolean wasdEnabled;
-    public String state;
-    public DroneStatus(boolean streaming, int queueSize, boolean wasdEnabled, String state) {
-        this.streaming = streaming;
-        this.queueSize = queueSize;
-        this.wasdEnabled = wasdEnabled;
-        this.state = state;
     }
 }
